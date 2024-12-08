@@ -3,10 +3,193 @@
  */
 package taller
 
+import scala.util.Random
+import common.parallel
+import scala.annotation.tailrec
+
+
 object App {
-  def main(args: Array[String]): Unit = {
+    def main(args: Array[String]): Unit = {
     println(greeting())
+
+    val long = 4
+
+    val finca = fincaAlAzar(long);
+    val distancia = distanciaAlAzar(long);
+
+    val r = for{
+        i <- 0 to (long - 1)    
+    }yield(tsup(finca,i),treg(finca,i),tprio(finca,i))
+
+    println("Finca:")
+    println(r)
+
+    println("\nMatriz de Distancias:")
+    distancia.foreach(println)
+
+    // val programaciones = generarProgramacionesRiego(finca)
+    /*
+    println("Programaciones de Riego:")
+    programaciones.foreach(println)
+    */
+
+    /*
+    println("Programacion de Riego:")
+    val programacionAzar = programaciones(Random.nextInt(programaciones.length))
+    println(programacionAzar)
+
+
+    println("Tiempo de inicio de Riego")
+    println(tIR(finca,programacionAzar))
+
+    println("Costo riego finca")
+    println(costoRiegoFinca(finca, programacionAzar))
+
+    println("Costo movilidad")
+    println(costoMovilidad(finca, programacionAzar, distancia))
+    */
+
+    println("Programacion de Riego optima:")
+    println(ProgramacionRiegoOptimo(finca, distancia))
+
   }
 
   def greeting(): String = "Hello, world!"
+  private val random = new Random()
+//================== DEFINIMOS TIPOS =====================
+type Tablon = (Int, Int, Int) 
+// (ts, tr, p) => (tiempo de supervivencia, tiempo de regado, prioridad)
+
+type Finca = Vector[Tablon] 
+// Una finca es un vector de tablones
+
+type Distancia = Vector[Vector[Int]] 
+// Matriz de distancias entre tablones
+
+type ProgRiego = Vector[Int]
+// Programación de riego como vector de enteros
+
+type TiempoInicioRiego = Vector[Int]
+// Tiempo en que inicia a regarse el tablon en posicion i
+
+//=========================================================
+
+
+//============ EXPLORACION DE ENTRADAS =============
+  def tsup(f: Finca, i:Int): Int = {
+    f(i)._1
+    //Tiempo de supervivencia del tablon i
+  }
+
+  def treg(f: Finca, i:Int): Int = {
+    f(i)._2
+    //Tiempo de regado del tablon i
+  }
+
+  def tprio(f: Finca, i:Int): Int = {
+    f(i)._3
+    //Prioridad del tablon i
+  }
+
+//=======================GENERADORES ALEATORIOS======================
+
+    // Genera una finca al azar
+    def fincaAlAzar(long: Int) : Finca = {
+        // Crea una finca de long tablones ,
+        // con valores aleatorios entre 1 y long * 2 para el tiempo
+        // de supervivencia , entre 1 y long para el tiempo
+        // de regado y entre 1 y 4 para la prioridad
+        val v = Vector.fill(long)(
+        (random.nextInt(long*2) + 1 ,
+        random.nextInt(long)+1 ,
+        random.nextInt(4) + 1 )
+        )
+        v
+    }
+
+    //Generar matriz de distancia al azar
+    def distanciaAlAzar(long: Int) : Distancia = {
+        // Crea una matriz de distancias para una finca
+        // de long tablones , con valores aleatorios entre
+        // 1 y long * 3
+        val v = Vector.fill(long ,long)( random.nextInt(long*3) + 1 )
+        Vector.tabulate( long , long) ( ( i , j ) =>
+        if ( i < j ) v ( i ) ( j )
+        else if ( i == j ) 0
+        else v ( j ) ( i ) )
+    }
+
+//==================================================================
+
+//================= GENERADOR DE PERMUTACIONES ===================
+
+    def generarProgramacionesRiego(f:Finca):Vector[ProgRiego] = {
+        // Dada una finca de n tablones , devuelve todas las
+        // posibles programaciones de riego de la finca
+        val indices = (0 until f.length).toVector
+        indices.permutations.toVector
+    }
+  
+//=================================================================
+
+//================= GENERADOR DE TIEMPOS DE ININCIO DE RIEGO ==================
+
+    def tIR ( f : Finca , pi : ProgRiego ) : TiempoInicioRiego = {
+        // Dada una finca f y una programaci´on de riego pi,
+        // y f.length == n, tIR(f, pi) devuelve t: TiempoInicioRiego
+        // tal que t(i) es el tiempo en que inicia el riego del
+        // tablon i de la finca f seg´un pi
+        val tiempos = Array.fill( f.length)(0)
+        for (j <- 1 until pi.length ) {
+        val prevTablon = pi ( j - 1 )
+        val currTablon = pi ( j )
+        tiempos(currTablon) = tiempos( prevTablon ) + treg( f, prevTablon)
+        }
+        tiempos.toVector
+    }
+
+//==============================================================================
+
+//======================== CALCULADORA DE COSTOS ============================
+
+    //Costo de riego del tablon 
+    def costoRiegoTablon( i : Int, f : Finca , pi : ProgRiego ) : Int = {
+        val tiempoInicio = tIR(f , pi)(i)
+        val tiempoFinal = tiempoInicio + treg ( f , i )
+
+        // tiempo de supervivencia - tiempo de regado >= tiempo inicio riego
+        if (tsup(f , i) - treg(f , i) >= tiempoInicio) {
+
+            //ts - (ti + tr)
+            tsup(f , i) - tiempoFinal
+        } else {
+            //pi * ((ti + tr) - ts)
+        tprio(f , i) * (tiempoFinal - tsup(f , i))
+        }
+    }
+
+    //Costo de riego de una finca
+    def costoRiegoFinca(f : Finca , pi : ProgRiego ) :Int = {
+        //Sumatoria de todos los costos de riego de cada tablon
+        ( 0 until f.length) . map( i => costoRiegoTablon(i , f , pi)).sum
+    }
+
+    //Costo de movilidad
+    def costoMovilidad(f : Finca , pi : ProgRiego , d : Distancia) : Int = {
+        ( 0 until pi.length - 1 ).map( j => d (pi( j ))(pi( j + 1 ))).sum
+    }
+//==========================================================================
+
+//================================ RIEGO OPTIMO ====================================
+
+    def ProgramacionRiegoOptimo(f : Finca , d :Distancia) : (ProgRiego, Int) = {
+        // Dada una finca devuelve la programacion de riego optima
+        val programaciones = generarProgramacionesRiego(f)
+        val costos = programaciones.map( pi =>
+        ( pi,costoRiegoFinca(f , pi) + costoMovilidad(f , pi , d) )
+        )
+        costos.minBy(_._2)
+    }
+
+//==================================================================================
 }

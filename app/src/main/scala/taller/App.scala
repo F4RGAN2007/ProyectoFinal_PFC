@@ -4,16 +4,15 @@
 package taller
 
 import scala.util.Random
-import common.parallel
 import scala.annotation.tailrec
-
+import scala.collection.parallel.CollectionConverters.ImmutableIterableIsParallelizable
+import org.scalameter._
 
 object App {
     def main(args: Array[String]): Unit = {
     println(greeting())
 
     val long = 4
-
     val finca = fincaAlAzar(long);
     val distancia = distanciaAlAzar(long);
 
@@ -48,10 +47,18 @@ object App {
     println("Costo movilidad")
     println(costoMovilidad(finca, programacionAzar, distancia))
     */
-
+    /*
     println("Programacion de Riego optima:")
     println(ProgramacionRiegoOptimo(finca, distancia))
-
+    */
+    val timeSeq = measure {
+      ProgramacionRiegoOptimo( finca , distancia )
+    }
+      val timePar = measure {
+        ProgramacionRiegoOptimoPar(finca , distancia )
+      }
+      println (s"Secuencial: $timeSeq ms")
+      println (s"Paralelo: $timePar ms")
   }
 
   def greeting(): String = "Hello, world!"
@@ -129,6 +136,12 @@ type TiempoInicioRiego = Vector[Int]
         val indices = (0 until f.length).toVector
         indices.permutations.toVector
     }
+    // Función Paralelizada
+    def generarProgramacionesRiegoPar( f : Finca) : Vector [ProgRiego] = {
+      // Genera las programaciones posibles de manera paralela
+      val indices = (0 until f.length).toVector
+      indices.permutations.toVector.par.toVector
+    }
   
 //=================================================================
 
@@ -173,10 +186,21 @@ type TiempoInicioRiego = Vector[Int]
         //Sumatoria de todos los costos de riego de cada tablon
         ( 0 until f.length) . map( i => costoRiegoTablon(i , f , pi)).sum
     }
+    // Función Paralelizada
+    def costoRiegoFincaPar( f : Finca , pi : ProgRiego) : Int = {
+      // Devuelve el costo total de regar una finca f dada una
+      // programaci´on de riego pi, calculando en paralelo
+      (0 until f . length).par.map( i => costoRiegoTablon(i , f , pi)) .sum
+    }
 
     //Costo de movilidad
     def costoMovilidad(f : Finca , pi : ProgRiego , d : Distancia) : Int = {
         ( 0 until pi.length - 1 ).map( j => d (pi( j ))(pi( j + 1 ))).sum
+    }
+    // Función Palelizada
+    def costoMovilidadPar( f : Finca , pi : ProgRiego , d: Distancia) : Int = {
+      // Calcula el costo de movilidad de manera paralela
+      (0 until pi.length - 1).par.map(j => d(pi(j))(pi(j + 1))).sum
     }
 //==========================================================================
 
@@ -189,6 +213,15 @@ type TiempoInicioRiego = Vector[Int]
         ( pi,costoRiegoFinca(f , pi) + costoMovilidad(f , pi , d) )
         )
         costos.minBy(_._2)
+    }
+    // Función Paralelizada
+    def ProgramacionRiegoOptimoPar( f : Finca , d: Distancia) : (ProgRiego , Int) = {
+      // Dada una finca, calcula la programaci´on ´optima de riego
+      val programaciones = generarProgramacionesRiegoPar(f)
+      val costos = programaciones.par.map(pi =>
+        (pi , costoRiegoFincaPar(f , pi) + costoMovilidadPar(f, pi ,d))
+      )
+      costos.minBy(_._2)
     }
 
 //==================================================================================

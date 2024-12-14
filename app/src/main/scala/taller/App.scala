@@ -17,7 +17,7 @@ object App {
     val distancia = distanciaAlAzar(long);
 
     val r = for{
-        i <- 0 to (long - 1)    
+        i <- 0 until long
     }yield(tsup(finca,i),treg(finca,i),tprio(finca,i))
 
     println("Finca:")
@@ -51,14 +51,11 @@ object App {
     println("Programacion de Riego optima:")
     println(ProgramacionRiegoOptimo(finca, distancia))
     */
-    val timeSeq = measure {
-      ProgramacionRiegoOptimo( finca , distancia )
-    }
-      val timePar = measure {
-        ProgramacionRiegoOptimoPar(finca , distancia )
-      }
-      println (s"Secuencial: $timeSeq ms")
-      println (s"Paralelo: $timePar ms")
+    val b = new Benchmark()
+      b.BenchmarkCostoRiegoFinca()
+      b.BenchmarCostoMovilidad()
+      b.BenchmarkGenerarProgramacionesRiego()
+      b.BenchmarkRiegoOptimo()
   }
 
   def greeting(): String = "Hello, world!"
@@ -67,7 +64,7 @@ object App {
 type Tablon = (Int, Int, Int) 
 // (ts, tr, p) => (tiempo de supervivencia, tiempo de regado, prioridad)
 
-type Finca = Vector[Tablon] 
+type Finca = Vector[Tablon]
 // Una finca es un vector de tablones
 
 type Distancia = Vector[Vector[Int]] 

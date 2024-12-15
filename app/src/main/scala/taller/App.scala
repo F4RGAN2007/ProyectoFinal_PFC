@@ -51,11 +51,8 @@ object App {
     println("Programacion de Riego optima:")
     println(ProgramacionRiegoOptimo(finca, distancia))
     */
-    val b = new Benchmark()
-      b.BenchmarkCostoRiegoFinca()
-      b.BenchmarCostoMovilidad()
-      b.BenchmarkGenerarProgramacionesRiego()
-      b.BenchmarkRiegoOptimo()
+    val bench = new Benchmark
+      bench.runBenchmarks()
   }
 
   def greeting(): String = "Hello, world!"
